@@ -101,49 +101,42 @@ df <- pbp_rp %>%
   ungroup() %>%
   rename(team = pos_team) %>%
   arrange(passer_name, play_n) %>%
-  left_join(team_info, by = "team") %>%
-  mutate(passer_name2 = passer_name)
+  left_join(team_info, by = "team")
+
+top_p5 <- df %>%
+  filter(conference %in% p5) %>%
+  group_by(passer_name, team) %>%
+  summarise(n = n(),
+            cum_epa = last(cum_epa)) %>%
+  arrange(-n) %>%
+  head(30) %>%
+  arrange(-cum_epa)
+
+p5_levels <- top_p5$passer_name # Order facets by highest cumulative EPA.
 
 p5_df <- df %>%
-  filter(conference %in% p5)
+  filter(passer_name %in% top_p5$passer_name) %>%
+  mutate(passer_name2 = passer_name) %>% # Plot ALL lines in each facet.
+  mutate(passer_name = factor(passer_name, levels = p5_levels))
 
-g5_df <- df %>%
-  filter(conference %in% g5)
-
-group1_p5 <- p5_df %>%
-  group_by(passer_name, team) %>%
-  summarise(n = n()) %>%
-  arrange(-n) %>%
-  head(32)
-
-group2_p5 <- p5_df %>%
-  group_by(passer_name, team) %>%
-  summarise(n = n()) %>%
-  arrange(-n) %>%
-  filter(n <= 184 & n >= 70)
-
-group1_g5 <- g5_df %>%
-  group_by(passer_name, team) %>%
-  summarise(n = n()) %>%
-  arrange(-n) %>%
-  head(32)
+max(p5_df$play_n)
 
 
 font_add_google("Fjalla One", "Fjalla One")
 showtext_auto(enable = TRUE)
 showtext_opts(dpi = 300)
 
-base <- ggplot(p5_df %>% filter(passer_name %in% group1_p5$passer_name),
+base <- ggplot(p5_df,
                aes(x = play_n, y = cum_epa, group = passer_name)) +
-  facet_wrap(~passer_name, ncol = 4, scales = "free_x") +
+  facet_wrap(~passer_name, ncol = 5, scales = "free_x") +
   theme(plot.background = element_rect(fill = "#F0F8FF", colour = "#F0F8FF"),
         panel.background = element_rect(fill = "#F0F8FF"),
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
         strip.background = element_blank(),
         panel.spacing.x = unit(1.5, "lines")) +
-  labs(title = "QB Cumulative EPA: Weeks 0-6",
-       subtitle = "Power 5 | 185+ plays | Passes and rushes | INTs, sacks and fumbles included",
+  labs(title = "QB Cumulative EPA: Weeks 0-8",
+       subtitle = "Power Five | 240+ plays | Passes and rushes | INTs, sacks and fumbles included",
        caption = "Data: cfbfastR & CollegeFootballData.com | Plot: @cover2figuRes",
        x = "Play Number",
        y = "Cumulative EPA") +
@@ -153,18 +146,16 @@ base <- ggplot(p5_df %>% filter(passer_name %in% group1_p5$passer_name),
         axis.title = element_text(size = 14),
         plot.caption = element_text(size = 10, hjust = 0.5),
         strip.text = element_text(size = 12, hjust = 0.15)) +
-  scale_x_continuous(limits = c(0, 325),
-                     breaks = seq(0, 325, 65)) +
-  geom_line(data = p5_df %>% select(c(2:8)) %>%
-              filter(passer_name2 %in% group1_p5$passer_name),
+  scale_x_continuous(limits = c(0, 405),
+                     breaks = seq(0, 405, 81)) +
+  geom_line(data = p5_df %>% select(c(2:8)),
             aes(x = play_n, y = cum_epa, group = passer_name2),
             colour = "grey", size = 0.3) +
   geom_line(aes(colour = color), size = 1, show.legend = FALSE) +
   scale_colour_identity() +
   geom_cfb_logos(data = p5_df %>%
-                   filter(passer_name %in% group1_p5$passer_name)
-                 %>% group_by(passer_name) %>% slice_head(n = 1),
-                 aes(x = 30, y = 80, team = team), width = 0.1) +
+                   group_by(passer_name) %>% slice_head(n = 1),
+                 aes(x = 40, y = 140, team = team), width = 0.1) +
   theme(plot.margin = unit(c(1, 1, 3, 1), "lines"))
 
 ragg::agg_png("Base.png", width = 13, height = 13,
@@ -193,130 +184,4 @@ plot_with_ncaa <- add_logo(
   logo_scale = 15
 )
 
-magick::image_write(plot_with_ncaa, "Plots/CFB/CFB_QB_Cum_EPA_P5_V1.png")
-
-
-base <- ggplot(p5_df %>% filter(passer_name %in% group2_p5$passer_name),
-               aes(x = play_n, y = cum_epa, group = passer_name)) +
-  facet_wrap(~passer_name, ncol = 4, scales = "free_x") +
-  theme(plot.background = element_rect(fill = "#F0F8FF", colour = "#F0F8FF"),
-        panel.background = element_rect(fill = "#F0F8FF"),
-        panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank(),
-        strip.background = element_blank(),
-        panel.spacing.x = unit(1.5, "lines")) +
-  labs(title = "QB Cumulative EPA: Weeks 0-6",
-       subtitle = "Power 5 | 70-184 plays | Passes and rushes | INTs, sacks and fumbles included",
-       caption = "Data: cfbfastR & CollegeFootballData.com | Plot: @cover2figuRes",
-       x = "Play Number",
-       y = "Cumulative EPA") +
-  theme(text = element_text(family = "Fjalla One"),
-        plot.title = element_text(size = 20, hjust = 0.5),
-        plot.subtitle = element_text(size = 16, hjust = 0.5),
-        axis.title = element_text(size = 14),
-        plot.caption = element_text(size = 10, hjust = 0.5),
-        strip.text = element_text(size = 12, hjust = 0.15)) +
-  scale_x_continuous(limits = c(0, 190),
-                     breaks = seq(0, 190, 38)) +
-  geom_line(data = p5_df %>% select(c(2:8)) %>%
-              filter(passer_name2 %in% group2_p5$passer_name),
-            aes(x = play_n, y = cum_epa, group = passer_name2),
-            colour = "grey", size = 0.3) +
-  geom_line(aes(colour = color), size = 1, show.legend = FALSE) +
-  scale_colour_identity() +
-  geom_cfb_logos(data = p5_df %>%
-                   filter(passer_name %in% group2_p5$passer_name)
-                 %>% group_by(passer_name) %>% slice_head(n = 1),
-                 aes(x = 10, y = 60, team = team), width = 0.1) +
-  theme(plot.margin = unit(c(1, 1, 3, 1), "lines"))
-
-ragg::agg_png("Base.png", width = 13, height = 13,
-              units = "in", res = 300)
-base
-dev.off()
-
-base_img <- magick::image_read("Base.png")
-
-base_raster <- grid::rasterGrob(base_img, width = unit(1, "npc"),
-                                height = unit(1, "npc"))
-
-plot_with_personal <- add_logo(
-  plot_path = "Base.png",
-  logo_path = "Cover2.png",
-  logo_position = "bottom left",
-  logo_scale = 18
-)
-
-magick::image_write(plot_with_personal, "Personal.png")
-
-plot_with_ncaa <- add_logo(
-  plot_path = "Personal.png",
-  logo_path = "NCAA.png",
-  logo_position = "top left",
-  logo_scale = 15
-)
-
-magick::image_write(plot_with_ncaa, "Plots/CFB/CFB_QB_Cum_EPA_P5_V2.png")
-
-
-base <- ggplot(g5_df %>% filter(passer_name %in% group1_g5$passer_name),
-               aes(x = play_n, y = cum_epa, group = passer_name)) +
-  facet_wrap(~passer_name, ncol = 4, scales = "free_x") +
-  theme(plot.background = element_rect(fill = "#F0F8FF", colour = "#F0F8FF"),
-        panel.background = element_rect(fill = "#F0F8FF"),
-        panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank(),
-        strip.background = element_blank(),
-        panel.spacing.x = unit(1.5, "lines")) +
-  labs(title = "QB Cumulative EPA: Weeks 0-6",
-       subtitle = "Group of 5 + Independents | 165+ plays | Passes and rushes | INTs, sacks and fumbles included",
-       caption = "Data: cfbfastR & CollegeFootballData.com | Plot: @cover2figuRes",
-       x = "Play Number",
-       y = "Cumulative EPA") +
-  theme(text = element_text(family = "Fjalla One"),
-        plot.title = element_text(size = 20, hjust = 0.5),
-        plot.subtitle = element_text(size = 16, hjust = 0.5),
-        axis.title = element_text(size = 14),
-        plot.caption = element_text(size = 10, hjust = 0.5),
-        strip.text = element_text(size = 12, hjust = 0.15)) +
-  scale_x_continuous(limits = c(0, 265),
-                     breaks = seq(0, 265, 53)) +
-  geom_line(data = g5_df %>% select(c(2:8)) %>%
-              filter(passer_name2 %in% group1_g5$passer_name),
-            aes(x = play_n, y = cum_epa, group = passer_name2),
-            colour = "grey", size = 0.3) +
-  geom_line(aes(colour = color), size = 1, show.legend = FALSE) +
-  scale_colour_identity() +
-  geom_cfb_logos(data = g5_df %>%
-                   filter(passer_name %in% group1_g5$passer_name)
-                 %>% group_by(passer_name) %>% slice_head(n = 1),
-                 aes(x = 15, y = 60, team = team), width = 0.1) +
-  theme(plot.margin = unit(c(1, 1, 3, 1), "lines"))
-
-ragg::agg_png("Base.png", width = 13, height = 13,
-              units = "in", res = 300)
-base
-dev.off()
-
-base_img <- magick::image_read("Base.png")
-
-base_raster <- grid::rasterGrob(base_img, width = unit(1, "npc"),
-                                height = unit(1, "npc"))
-
-plot_with_personal <- add_logo(
-  plot_path = "Base.png",
-  logo_path = "Cover2.png",
-  logo_position = "bottom left",
-  logo_scale = 18
-)
-
-magick::image_write(plot_with_personal, "Personal.png")
-
-plot_with_ncaa <- add_logo(
-  plot_path = "Personal.png",
-  logo_path = "NCAA.png",
-  logo_position = "top left",
-  logo_scale = 15
-)
-
-magick::image_write(plot_with_ncaa, "Plots/CFB/CFB_QB_Cum_EPA_G5.png")
+magick::image_write(plot_with_ncaa, "Plots/CFB/CFB_QB_Cum_EPA_P5.png")
